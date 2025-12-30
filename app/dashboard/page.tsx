@@ -10,7 +10,7 @@ import AiTutor from "@/components/AiTutor";
 import TeacherDashboard from "@/components/TeacherDashboard";
 import QuizModal from "@/components/QuizModal";
 import StudentReportCard from "@/components/StudentReportCard";
-import JoinClassModal from "@/components/JoinClassModal"; // <--- NEW IMPORT
+import JoinClassModal from "@/components/JoinClassModal";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -67,10 +67,8 @@ export default function DashboardPage() {
       let weeksRef;
 
       if (schoolId) {
-        // CASE A: Read from the School's Private Copy
         weeksRef = collection(db, "schools", schoolId, "curriculum", gradeId, "weeks");
       } else {
-        // CASE B: Fallback (e.g. User has no school yet)
         weeksRef = collection(db, "curriculum", gradeId, "weeks");
       }
 
@@ -150,7 +148,7 @@ export default function DashboardPage() {
               studentId={user.uid} 
               onJoinSuccess={() => {
                 setLoading(true);
-                loadUserProfile(user); // Refresh profile to remove modal
+                loadUserProfile(user); 
                 setLoading(false);
               }} 
             />
@@ -190,8 +188,28 @@ export default function DashboardPage() {
                   {/* TAB CONTENT: LESSONS */}
                   {studentTab === "lessons" ? (
                     <>
+                      {/* --- 🧪 THE LAB ENTRY CARD (NEW) --- */}
+                      <div 
+                        onClick={() => router.push("/dashboard/lab")}
+                        className="bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-700 p-6 rounded-xl flex items-center justify-between group cursor-pointer shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]" 
+                      >
+                        <div>
+                          <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                            🧪 Enter The Lab
+                            <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">New</span>
+                          </h3>
+                          <p className="text-blue-100/80 text-sm max-w-md">
+                            Access the Generative AI Sandbox. Test prompts, generate art, and build your portfolio.
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-all">
+                          <span className="text-2xl">⚡</span>
+                        </div>
+                      </div>
+                      {/* --- END LAB CARD --- */}
+
                       {weeks.length === 0 ? (
-                        <p className="text-gray-500 italic">No lessons published yet.</p>
+                        <p className="text-gray-500 italic mt-6">No lessons published yet.</p>
                       ) : (
                         weeks.map((week) => (
                           <div key={week.id} className={`mb-6 border rounded-xl overflow-hidden shadow-sm transition-all ${week.isPublished ? "bg-white" : "bg-gray-50 opacity-75"}`}>
