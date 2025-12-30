@@ -52,7 +52,6 @@ export default function LandingPage() {
       if (isLogin) {
         // --- LOG IN LOGIC ---
         await signInWithEmailAndPassword(auth, email, password);
-        // (The Dashboard will handle the rest)
         router.push("/dashboard");
       } else {
         // --- SIGN UP LOGIC (WITH APPROVAL CODES) ---
@@ -80,7 +79,7 @@ export default function LandingPage() {
           displayName: fullName,
           role: selectedRole,
           createdAt: serverTimestamp(),
-          schoolId: selectedRole === "teacher" ? "demo_school" : null // Auto-assign teacher to demo school
+          schoolId: selectedRole === "teacher" ? "demo_school" : null 
         });
 
         router.push("/dashboard");
@@ -286,8 +285,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
-
-
-
-
