@@ -6,8 +6,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const prompt = body.prompt;
 
-    // 1. Get the Key from the Vercel Safe
-    const apiKey = process.env.AIzaSyBJ_RSe9KFfNbrvXdULUMWOhPLR0xE69xg;
+    // --- FIX IS HERE: Use the NAME of the variable, not the key itself ---
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json({ error: "API Key missing." }, { status: 500 });
