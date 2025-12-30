@@ -14,6 +14,7 @@ interface School {
   studentCount: number;
   plan: string;
   isActive: boolean;
+  maxStudents: number;
 }
 
 export default function GodMode() {
