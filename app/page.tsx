@@ -47,28 +47,41 @@ export default function LandingPage() {
 
     try {
       if (isLogin) {
+        // --- LOGIN LOGIC ---
         await signInWithEmailAndPassword(auth, email, password);
         router.push("/dashboard");
       } else {
-        // CODE VERIFICATION
-        if (selectedRole === "student" && accessCode !== "BUBBLE-STUDENT") {
-          throw new Error("Invalid Class Code. Ask your teacher.");
+        // --- SIGN UP LOGIC ---
+        
+        // 1. Check Codes & Assign School
+        // This ensures BOTH Students and Teachers get connected to the content
+        let assignedSchoolId = null;
+
+        if (selectedRole === "student") {
+            if (accessCode !== "BUBBLE-STUDENT") throw new Error("Invalid Class Code.");
+            assignedSchoolId = "demo_school"; // FIX: Connects student to content
         }
-        if (selectedRole === "teacher" && accessCode !== "BUBBLE-TEACH") {
-          throw new Error("Invalid School Code. Ask your administrator.");
+        if (selectedRole === "teacher") {
+            if (accessCode !== "BUBBLE-TEACH") throw new Error("Invalid School Code.");
+            assignedSchoolId = "demo_school"; // FIX: Connects teacher to content
         }
+
         if (!fullName) throw new Error("Full name is required.");
 
+        // 2. Create Auth User
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
+        // 3. Update Display Name
         await updateProfile(user, { displayName: fullName });
+
+        // 4. Save User Data to Firestore
         await setDoc(doc(db, "users", user.uid), {
           email: email,
           displayName: fullName,
           role: selectedRole,
           createdAt: serverTimestamp(),
-          schoolId: selectedRole === "teacher" ? "demo_school" : null 
+          schoolId: assignedSchoolId // This now has the correct value
         });
 
         router.push("/dashboard");
@@ -78,6 +91,15 @@ export default function LandingPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leadEmail) return;
+    try {
+      await addDoc(collection(db, "leads"), { email: leadEmail, createdAt: serverTimestamp(), source: "hero_input" });
+      setLeadSent(true);
+    } catch (err) { console.error(err); }
   };
 
   return (
@@ -108,11 +130,36 @@ export default function LandingPage() {
         <p className="text-lg text-gray-500 max-w-xl mx-auto mb-10 leading-relaxed">
           The immersive learning ecosystem where students build the future. Safe, guided, and hands-on.
         </p>
+        
+        {/* Waitlist Input */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-lg mx-auto">
+          {!leadSent ? (
+            <>
+              <input 
+                type="email" 
+                placeholder="Enter school email address" 
+                className="w-full sm:w-2/3 bg-white/5 border border-white/10 rounded-full px-6 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all"
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
+              />
+              <button 
+                onClick={handleLeadSubmit}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-4 rounded-full transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap"
+              >
+                Join Waitlist
+              </button>
+            </>
+          ) : (
+             <div className="bg-blue-500/10 border border-blue-500/20 text-blue-300 px-6 py-4 rounded-full flex items-center gap-2 w-full justify-center">
+               <span>✨ You're on the list. We'll be in touch.</span>
+             </div>
+          )}
+        </div>
       </section>
 
       {/* FOOTER WITH VERSION TAG - This proves the update worked */}
       <footer className="py-10 text-center text-gray-800 text-xs">
-        <p>BubbleAI System v2.0 • Secure Connection</p>
+        <p>BubbleAI System v2.1 • Fixed Student Mapping</p>
       </footer>
 
       {showModal && (
