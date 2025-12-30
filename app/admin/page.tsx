@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { auth, db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, writeBatch, doc, where } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, writeBatch, doc } from "firebase/firestore"; 
 import { useRouter } from "next/navigation";
 
 // --- TYPE DEFINITIONS ---
@@ -14,7 +14,7 @@ interface School {
   studentCount: number;
   plan: string;
   isActive: boolean;
-  maxStudents: number;
+  maxStudents: number; // <--- This was the missing key!
 }
 
 export default function GodMode() {
@@ -25,60 +25,53 @@ export default function GodMode() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // --- SECURITY: LOCK THE DOOR ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/"); 
         return;
       }
-      // REAL WORLD SECURITY: In production, we check a "super_admin" claim here.
-      // For this weekend launch, we trust your login.
       fetchSchools();
     });
     return () => unsubscribe();
   }, [router]);
 
-  // --- 1. FETCH ALL CLIENTS ---
   const fetchSchools = async () => {
-    const q = query(collection(db, "schools"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as School));
-    setSchools(data);
-    setLoading(false);
+    try {
+      const q = query(collection(db, "schools"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as School));
+      setSchools(data);
+    } catch (err) {
+      console.error("Error fetching schools:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // --- 2. THE FRANCHISE CLONER (The Secret Sauce) ---
-  // This copies the "Master Curriculum" into the new School's database
   const deployCurriculum = async (schoolId: string) => {
     const batch = writeBatch(db);
     
-    // A. Clone Grade 6-8 (The Fun Stuff)
+    // Clone Grade 6
     const masterRef6 = collection(db, "curriculum_master", "grade_6", "weeks");
     const snapshot6 = await getDocs(masterRef6);
     
     if (!snapshot6.empty) {
       snapshot6.forEach((week) => {
-        // Copy to: schools/{schoolID}/curriculum/grade_6/weeks/{weekID}
         const targetRef = doc(db, "schools", schoolId, "curriculum", "grade_6", "weeks", week.id);
         batch.set(targetRef, week.data());
       });
     }
-
-    // B. Clone Grade 9-12 (The Syllabus Stuff - Placeholder for now)
-    // We will add this later when we build the High School content
     
     await batch.commit();
     console.log(`✅ Curriculum deployed to ${schoolId}`);
   };
 
-  // --- 3. CREATE NEW CLIENT ---
   const handleOnboardSchool = async () => {
     if (!newSchoolName || !adminEmail) return;
     setLoading(true);
 
     try {
-      // A. Create the School Entry
       const schoolRef = await addDoc(collection(db, "schools"), {
         name: newSchoolName,
         adminEmail: adminEmail,
@@ -87,14 +80,9 @@ export default function GodMode() {
         plan: "enterprise_yearly",
         isActive: true,
         createdAt: serverTimestamp(),
-        region: "IN" // Default to India, can change later
+        region: "IN"
       });
 
-      // B. Create the "Principal" User Account automatically
-      // (In a real app, we'd trigger a cloud function here to send an email invite)
-      // For now, we just reserve the slot.
-
-      // C. Deploy the Curriculum
       await deployCurriculum(schoolRef.id);
 
       alert(`🚀 ${newSchoolName} is LIVE! ID: ${schoolRef.id}`);
