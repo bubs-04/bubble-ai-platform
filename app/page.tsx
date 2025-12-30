@@ -54,7 +54,6 @@ export default function LandingPage() {
         // --- SIGN UP LOGIC ---
         
         // 1. Check Codes & Assign School
-        // This ensures BOTH Students and Teachers get connected to the content
         let assignedSchoolId = null;
 
         if (selectedRole === "student") {
@@ -81,7 +80,8 @@ export default function LandingPage() {
           displayName: fullName,
           role: selectedRole,
           createdAt: serverTimestamp(),
-          schoolId: assignedSchoolId // This now has the correct value
+          schoolId: assignedSchoolId,
+          classIds: [] // Initialize empty array so dashboard doesn't crash
         });
 
         router.push("/dashboard");
@@ -157,9 +157,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FOOTER WITH VERSION TAG - This proves the update worked */}
+      {/* FOOTER WITH VERSION TAG */}
       <footer className="py-10 text-center text-gray-800 text-xs">
-        <p>BubbleAI System v2.1 • Fixed Student Mapping</p>
+        <p>BubbleAI System v3.0 • Final Login Sync</p>
       </footer>
 
       {showModal && (

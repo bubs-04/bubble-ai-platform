@@ -77,6 +77,7 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  // Safety net for users without roles
   const handleSelectRole = async (role: "student" | "teacher") => {
     if (!user) return;
     setLoading(true);
@@ -104,6 +105,7 @@ export default function DashboardPage() {
 
   if (!user || !userProfile) return null; 
 
+  // --- ROLE SELECTOR (Safety Net) ---
   if (!userProfile.role) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6">
@@ -145,79 +147,75 @@ export default function DashboardPage() {
         <button onClick={handleLogout} className="bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 font-medium px-4 py-2 rounded-lg">Sign Out</button>
       </div>
 
+      {/* --- TEACHER VIEW --- */}
       {userProfile.role === "teacher" || userProfile.role === "school_admin" ? (
         <TeacherDashboard user={user} schoolId={userProfile.schoolId} />
       ) : (
-        <>
-          {(!userProfile.classIds || userProfile.classIds.length === 0) ? (
-            <JoinClassModal 
-              studentId={user.uid} 
-              onJoinSuccess={() => { setLoading(true); loadUserProfile(user); setLoading(false); }} 
-            />
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-white p-8 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-800 mb-1">👋 Welcome, {userProfile.displayName}!</h2>
-                      <p className="text-gray-600">Let's continue your journey.</p>
-                    </div>
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                      <button onClick={() => setStudentTab("lessons")} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${studentTab === "lessons" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>📚 Lessons</button>
-                      <button onClick={() => setStudentTab("grades")} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${studentTab === "grades" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>📊 Report Card</button>
-                    </div>
-                  </div>
-
-                  {studentTab === "lessons" ? (
-                    <>
-                      {/* --- CLEAN DASHBOARD: NO LAB BUTTON --- */}
-                      
-                      {weeks.length === 0 ? (
-                        <p className="text-gray-500 italic mt-6">No lessons published yet.</p>
-                      ) : (
-                        weeks.map((week) => (
-                          <div key={week.id} className={`mb-6 border rounded-xl overflow-hidden shadow-sm transition-all ${week.isPublished ? "bg-white" : "bg-gray-50 opacity-75"}`}>
-                            <div className={`p-4 flex justify-between items-center ${week.isPublished ? "bg-blue-600" : "bg-gray-200"}`}>
-                              <h3 className={`font-bold text-lg ${week.isPublished ? "text-white" : "text-gray-500"}`}>Week {week.order}: {week.title}</h3>
-                              {week.isPublished ? <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">Open</span> : <span className="flex items-center gap-1 bg-gray-300 text-gray-600 text-xs px-2 py-1 rounded font-bold">🔒 Locked</span>}
-                            </div>
-                            {week.isPublished ? (
-                              <div className="p-6">
-                                <p className="text-gray-700 mb-4">{week.content}</p>
-                                {week.videoUrl && (
-                                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-black mb-6 shadow-inner">
-                                    <iframe src={week.videoUrl} className="w-full h-full" title="Lesson Video" allowFullScreen></iframe>
-                                  </div>
-                                )}
-                                <div className="flex gap-3">
-                                  {week.quiz && week.quiz.length > 0 ? (
-                                    <button onClick={() => setActiveQuiz({ questions: week.quiz, weekId: week.id })} className="bg-indigo-50 text-indigo-700 px-6 py-2 rounded-lg font-bold hover:bg-indigo-100 border border-indigo-200">Take Quiz ({week.quiz.length} Qs)</button>
-                                  ) : (
-                                    <button disabled className="bg-gray-50 text-gray-400 px-6 py-2 rounded-lg font-bold cursor-not-allowed">No Quiz Yet</button>
-                                  )}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-8 text-center"><div className="text-4xl mb-2 opacity-30">🔒</div><p className="text-gray-400 font-medium">This content is locked.</p></div>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </>
-                  ) : (
-                    <StudentReportCard studentId={user.uid} />
-                  )}
-              </div>
+        
+        // --- STUDENT VIEW (Simplified) ---
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
               
-              <div className="space-y-6">
-                <div className="bg-white rounded-xl shadow-sm border overflow-hidden sticky top-8">
-                  <div className="bg-indigo-600 p-4 text-white"><h3 className="font-bold text-lg">AI Assistant</h3><p className="text-indigo-100 text-sm">Stuck? Ask me anything!</p></div>
-                  <div className="p-4"><AiTutor /></div>
+              <div className="bg-white p-8 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800 mb-1">👋 Welcome, {userProfile.displayName}!</h2>
+                  <p className="text-gray-600">Let's continue your journey.</p>
+                </div>
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button onClick={() => setStudentTab("lessons")} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${studentTab === "lessons" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>📚 Lessons</button>
+                  <button onClick={() => setStudentTab("grades")} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${studentTab === "grades" ? "bg-white shadow text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>📊 Report Card</button>
                 </div>
               </div>
+
+              {studentTab === "lessons" ? (
+                <>
+                  {/* --- LESSONS LIST --- */}
+                  {weeks.length === 0 ? (
+                    <div className="text-center py-10 bg-white border border-dashed rounded-xl">
+                      <p className="text-gray-500">No lessons found for your school.</p>
+                    </div>
+                  ) : (
+                    weeks.map((week) => (
+                      <div key={week.id} className={`mb-6 border rounded-xl overflow-hidden shadow-sm transition-all ${week.isPublished ? "bg-white" : "bg-gray-50 opacity-75"}`}>
+                        <div className={`p-4 flex justify-between items-center ${week.isPublished ? "bg-blue-600" : "bg-gray-200"}`}>
+                          <h3 className={`font-bold text-lg ${week.isPublished ? "text-white" : "text-gray-500"}`}>Week {week.order}: {week.title}</h3>
+                          {week.isPublished ? <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">Open</span> : <span className="flex items-center gap-1 bg-gray-300 text-gray-600 text-xs px-2 py-1 rounded font-bold">🔒 Locked</span>}
+                        </div>
+                        {week.isPublished ? (
+                          <div className="p-6">
+                            <p className="text-gray-700 mb-4">{week.content}</p>
+                            {week.videoUrl && (
+                              <div className="aspect-video w-full rounded-lg overflow-hidden bg-black mb-6 shadow-inner">
+                                <iframe src={week.videoUrl} className="w-full h-full" title="Lesson Video" allowFullScreen></iframe>
+                              </div>
+                            )}
+                            <div className="flex gap-3">
+                              {week.quiz && week.quiz.length > 0 ? (
+                                <button onClick={() => setActiveQuiz({ questions: week.quiz, weekId: week.id })} className="bg-indigo-50 text-indigo-700 px-6 py-2 rounded-lg font-bold hover:bg-indigo-100 border border-indigo-200">Take Quiz ({week.quiz.length} Qs)</button>
+                              ) : (
+                                <button disabled className="bg-gray-50 text-gray-400 px-6 py-2 rounded-lg font-bold cursor-not-allowed">No Quiz Yet</button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-8 text-center"><div className="text-4xl mb-2 opacity-30">🔒</div><p className="text-gray-400 font-medium">This content is locked.</p></div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
+              ) : (
+                <StudentReportCard studentId={user.uid} />
+              )}
+          </div>
+          
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden sticky top-8">
+              <div className="bg-indigo-600 p-4 text-white"><h3 className="font-bold text-lg">AI Assistant</h3><p className="text-indigo-100 text-sm">Stuck? Ask me anything!</p></div>
+              <div className="p-4"><AiTutor /></div>
             </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
