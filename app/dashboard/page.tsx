@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase"; 
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore"; 
+// ADDED: updateDoc is required to save the role
+import { collection, getDocs, query, orderBy, doc, getDoc, updateDoc } from "firebase/firestore"; 
 import { useRouter } from "next/navigation";
 import { checkOrCreateUser } from "@/lib/db";
 import AiTutor from "@/components/AiTutor";
@@ -58,10 +59,10 @@ export default function DashboardPage() {
     }
 
     if (profile.role === "student" || profile.role === "teacher") {
-       // Hardcoded to 'grade_6' for now, later we fetch based on class
        fetchCurriculum("grade_6", profile.schoolId);
     }
   };
+
   const fetchCurriculum = async (gradeId: string, schoolId?: string) => {
     try {
       let weeksRef;
@@ -85,12 +86,31 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  // --- NEW FUNCTION: SAVE ROLE TO DATABASE ---
+  const handleSelectRole = async (role: "student" | "teacher") => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      // 1. Update Database
+      await updateDoc(doc(db, "users", user.uid), {
+        role: role
+      });
+      // 2. Refresh Profile Locally so the screen updates
+      await loadUserProfile(user);
+    } catch (e) {
+      console.error("Error setting role:", e);
+      alert("Failed to save role.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center text-white">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-gray-700">Loading your school portal...</h2>
+          <h2 className="text-xl font-bold">Loading...</h2>
         </div>
       </div>
     );
@@ -98,10 +118,52 @@ export default function DashboardPage() {
 
   if (!user || !userProfile) return null; 
 
+  // --- 🚨 CRITICAL ADDITION: THE ROLE SELECTOR SCREEN ---
+  // If the user has NO role, we stop here and show them the buttons.
+  if (!userProfile.role) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6">
+        <div className="max-w-2xl w-full text-center">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-900/20 text-3xl font-bold">
+            B
+          </div>
+          <h1 className="text-3xl font-bold mb-2">Welcome to BubbleAI</h1>
+          <p className="text-gray-400 mb-10">To customize your experience, please select your role.</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Student Option */}
+            <button 
+              onClick={() => handleSelectRole("student")}
+              className="group bg-white/5 border border-white/10 p-8 rounded-2xl hover:bg-blue-600 hover:border-blue-500 transition-all text-left"
+            >
+              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🎓</div>
+              <h3 className="text-xl font-bold mb-2">I am a Student</h3>
+              <p className="text-sm text-gray-400 group-hover:text-blue-100">
+                I want to join a class, watch lessons, and complete assignments.
+              </p>
+            </button>
+
+            {/* Teacher Option */}
+            <button 
+              onClick={() => handleSelectRole("teacher")}
+              className="group bg-white/5 border border-white/10 p-8 rounded-2xl hover:bg-purple-600 hover:border-purple-500 transition-all text-left"
+            >
+              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">👩‍🏫</div>
+              <h3 className="text-xl font-bold mb-2">I am a Teacher</h3>
+              <p className="text-sm text-gray-400 group-hover:text-purple-100">
+                I want to create classrooms, manage students, and track grades.
+              </p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- YOUR ORIGINAL DASHBOARD CODE (Unchanged) ---
   return (
     <div className="p-8 max-w-6xl mx-auto min-h-screen bg-gray-50 relative">
       
-      {/* --- QUIZ MODAL --- */}
       {activeQuiz && user && (
         <QuizModal 
           questions={activeQuiz.questions} 
@@ -111,7 +173,6 @@ export default function DashboardPage() {
         />
       )}
       
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">{schoolName}</h1>
@@ -131,19 +192,11 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* --- LOGIC SPLIT --- */}
-      
-      {/* 1. TEACHER VIEW */}
       {userProfile.role === "teacher" || userProfile.role === "school_admin" ? (
         <TeacherDashboard user={user} schoolId={userProfile.schoolId} />
       ) : (
-        
-        // 2. STUDENT VIEW
         <>
-          {/* CHECK: IS STUDENT IN A CLASS? */}
           {(!userProfile.classIds || userProfile.classIds.length === 0) ? (
-            
-            // SHOW JOIN MODAL IF "HOMELESS"
             <JoinClassModal 
               studentId={user.uid} 
               onJoinSuccess={() => {
@@ -152,23 +205,14 @@ export default function DashboardPage() {
                 setLoading(false);
               }} 
             />
-
           ) : (
-
-            // SHOW DASHBOARD IF ENROLLED
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* LEFT COLUMN: MAIN CONTENT */}
               <div className="lg:col-span-2 space-y-6">
-                  
-                  {/* WELCOME CARD + TABS */}
                   <div className="bg-white p-8 rounded-xl border shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-800 mb-1">👋 Welcome, {userProfile.displayName}!</h2>
                       <p className="text-gray-600">Let's continue your journey.</p>
                     </div>
-                    
-                    {/* TABS SWITCHER */}
                     <div className="flex bg-gray-100 p-1 rounded-lg">
                       <button 
                         onClick={() => setStudentTab("lessons")}
@@ -185,10 +229,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* TAB CONTENT: LESSONS */}
                   {studentTab === "lessons" ? (
                     <>
-                      {/* --- 🧪 THE LAB ENTRY CARD (NEW) --- */}
+                      {/* 🧪 THE LAB ENTRY CARD */}
                       <div 
                         onClick={() => router.push("/dashboard/lab")}
                         className="bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-700 p-6 rounded-xl flex items-center justify-between group cursor-pointer shadow-lg hover:shadow-xl transition-all hover:scale-[1.01]" 
@@ -206,21 +249,18 @@ export default function DashboardPage() {
                           <span className="text-2xl">⚡</span>
                         </div>
                       </div>
-                      {/* --- END LAB CARD --- */}
 
                       {weeks.length === 0 ? (
                         <p className="text-gray-500 italic mt-6">No lessons published yet.</p>
                       ) : (
                         weeks.map((week) => (
                           <div key={week.id} className={`mb-6 border rounded-xl overflow-hidden shadow-sm transition-all ${week.isPublished ? "bg-white" : "bg-gray-50 opacity-75"}`}>
-                            
                             <div className={`p-4 flex justify-between items-center ${week.isPublished ? "bg-blue-600" : "bg-gray-200"}`}>
                               <h3 className={`font-bold text-lg ${week.isPublished ? "text-white" : "text-gray-500"}`}>
                                 Week {week.order}: {week.title}
                               </h3>
                               {week.isPublished ? <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded">Open</span> : <span className="flex items-center gap-1 bg-gray-300 text-gray-600 text-xs px-2 py-1 rounded font-bold">🔒 Locked</span>}
                             </div>
-                            
                             {week.isPublished ? (
                               <div className="p-6">
                                 <p className="text-gray-700 mb-4">{week.content}</p>
@@ -229,20 +269,12 @@ export default function DashboardPage() {
                                     <iframe src={week.videoUrl} className="w-full h-full" title="Lesson Video" allowFullScreen></iframe>
                                   </div>
                                 )}
-
                                 <div className="flex gap-3">
-                                  <button 
-                                    onClick={() => router.push(`/lab/${week.id}`)}
-                                    className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-sm transition-transform active:scale-95"
-                                  >
+                                  <button onClick={() => router.push(`/lab/${week.id}`)} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-sm transition-transform active:scale-95">
                                     Start Assignment
                                   </button>
-                                  
                                   {week.quiz && week.quiz.length > 0 ? (
-                                    <button 
-                                      onClick={() => setActiveQuiz({ questions: week.quiz, weekId: week.id })}
-                                      className="bg-indigo-50 text-indigo-700 px-6 py-2 rounded-lg font-bold hover:bg-indigo-100 border border-indigo-200"
-                                    >
+                                    <button onClick={() => setActiveQuiz({ questions: week.quiz, weekId: week.id })} className="bg-indigo-50 text-indigo-700 px-6 py-2 rounded-lg font-bold hover:bg-indigo-100 border border-indigo-200">
                                       Take Quiz ({week.quiz.length} Qs)
                                     </button>
                                   ) : (
@@ -263,12 +295,10 @@ export default function DashboardPage() {
                       )}
                     </>
                   ) : (
-                    // TAB CONTENT: REPORT CARD
                     <StudentReportCard studentId={user.uid} />
                   )}
               </div>
 
-              {/* RIGHT: AI TUTOR */}
               <div className="space-y-6">
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden sticky top-8">
                   <div className="bg-indigo-600 p-4 text-white">
@@ -280,7 +310,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-
             </div>
           )}
         </>
