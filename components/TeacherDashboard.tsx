@@ -1,135 +1,83 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClassroom, getTeacherClasses } from "@/lib/db";
-import { User } from "firebase/auth";
-import AdminCurriculum from "@/components/AdminCurriculum";
-import TeacherGradebook from "@/components/TeacherGradebook"; 
+import { db } from "@/lib/firebase";
+import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { Week, UserProfile } from "@/types";
 
-// UPDATE 1: Add schoolId to the interface
-export default function TeacherDashboard({ user, schoolId }: { user: User, schoolId: string }) {
-  const [classes, setClasses] = useState<any[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState("classes"); 
-  
-  // Form State
-  const [className, setClassName] = useState("");
-  const [grade, setGrade] = useState("6");
+export default function TeacherDashboard({ user, schoolId }: { user: any, schoolId: string }) {
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [loading, setLoading] = useState(false);
 
+  // 1. Fetch Curriculum
   useEffect(() => {
-    loadClasses();
-  }, [user]);
+    const fetchWeeks = async () => {
+      if (!schoolId) return;
+      const q = query(collection(db, "schools", schoolId, "curriculum", "grade_6", "weeks"), orderBy("order"));
+      const snap = await getDocs(q);
+      setWeeks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Week)));
+    };
+    fetchWeeks();
+  }, [schoolId]);
 
-  const loadClasses = async () => {
-    const myClasses = await getTeacherClasses(user.uid);
-    setClasses(myClasses);
+  // 2. TOGGLE PUBLISH (Lock/Unlock)
+  const togglePublish = async (weekId: string, currentStatus: boolean) => {
+    await updateDoc(doc(db, "schools", schoolId, "curriculum", "grade_6", "weeks", weekId), {
+      isPublished: !currentStatus
+    });
+    // Optimistic Update
+    setWeeks(weeks.map(w => w.id === weekId ? { ...w, isPublished: !currentStatus } : w));
   };
 
-  const handleCreateClass = async () => {
-    if (!schoolId) {
-      alert("Error: No School ID found for this teacher.");
-      return;
-    }
-    setIsCreating(true);
-    // UPDATE 2: Use the real schoolId instead of "demo_school"
-    await createClassroom(user.uid, schoolId, className, Number(grade));
-    setIsCreating(false);
-    setClassName("");
-    loadClasses();
+  // 3. THE INSTALLER (Admin Tool)
+  const installCurriculum = async () => {
+    if(!confirm("Are you sure? This will add 3 weeks to the database.")) return;
+    setLoading(true);
+    
+    const demoData = [
+      { order: 1, title: "Intro to AI", content: "What is AI? History and Basics.", isPublished: true, videoUrl: "https://www.youtube.com/embed/ad79nYk2keg" },
+      { order: 2, title: "Machine Learning", content: "Supervised vs Unsupervised Learning.", isPublished: false },
+      { order: 3, title: "Ethics in AI", content: "Bias, Privacy, and Safety.", isPublished: false }
+    ];
+
+    try {
+      for (const week of demoData) {
+        await addDoc(collection(db, "schools", schoolId, "curriculum", "grade_6", "weeks"), { ...week, createdAt: serverTimestamp() });
+      }
+      alert("Installation Complete. Refresh page.");
+      window.location.reload();
+    } catch (e) { alert("Error installing."); }
+    setLoading(false);
   };
 
   return (
-    <div className="space-y-8">
-      
-      {/* TABS NAVIGATION */}
-      <div className="flex space-x-4 border-b">
-        <button 
-          onClick={() => setActiveTab("classes")}
-          className={`pb-2 px-4 font-bold ${activeTab === "classes" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          My Classes
-        </button>
-        <button 
-          onClick={() => setActiveTab("curriculum")}
-          className={`pb-2 px-4 font-bold ${activeTab === "curriculum" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Curriculum Manager
-        </button>
-        <button 
-          onClick={() => setActiveTab("gradebook")}
-          className={`pb-2 px-4 font-bold ${activeTab === "gradebook" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Gradebook
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Curriculum Manager</h2>
+          <p className="text-gray-500">Grade 6 • Computer Science</p>
+        </div>
+        <button onClick={installCurriculum} disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-500">
+           {loading ? "Installing..." : "🛠️ Install Syllabus"}
         </button>
       </div>
 
-      {/* TAB 1: CLASSES */}
-      {activeTab === "classes" && (
-        <>
-          <div className="bg-white p-6 rounded-xl border shadow-sm">
-            <h2 className="text-xl font-bold mb-4">Create a New Class</h2>
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">Class Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. 6-B Computer Science"
-                  className="w-full p-2 border rounded"
-                  value={className}
-                  onChange={(e) => setClassName(e.target.value)}
-                />
-              </div>
-              <div className="w-32">
-                <label className="block text-sm font-medium mb-1">Grade</label>
-                <select 
-                  className="w-full p-2 border rounded bg-white"
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                >
-                  {[6, 7, 8, 9, 10].map(g => <option key={g} value={g}>Grade {g}</option>)}
-                </select>
-              </div>
-              <button 
-                onClick={handleCreateClass}
-                disabled={isCreating || !className}
-                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isCreating ? "Creating..." : "Create Class"}
-              </button>
-            </div>
+      <div className="grid gap-4">
+        {weeks.length === 0 ? <p className="text-gray-500">No curriculum found. Click 'Install Syllabus'.</p> : weeks.map((week) => (
+          <div key={week.id} className="bg-white border rounded-lg p-4 flex justify-between items-center">
+             <div>
+               <h3 className="font-bold text-lg">Week {week.order}: {week.title}</h3>
+               <p className="text-sm text-gray-500">{week.isPublished ? "🟢 Live for Students" : "🔴 Locked"}</p>
+             </div>
+             <button 
+               onClick={() => togglePublish(week.id, week.isPublished)}
+               className={`px-4 py-2 rounded-lg font-bold text-sm ${week.isPublished ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
+             >
+               {week.isPublished ? "Lock Content" : "Publish Content"}
+             </button>
           </div>
-
-          <h3 className="text-lg font-bold text-gray-700">My Active Classes</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classes.map((cls) => (
-              <div key={cls.id} className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl border border-blue-100 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 opacity-50"></div>
-                <h4 className="text-xl font-bold text-gray-800 mb-1">{cls.name}</h4>
-                <p className="text-sm text-gray-500 mb-4">Grade {cls.grade} • {cls.studentIds?.length || 0} Students</p>
-                <div className="bg-white p-3 rounded-lg border border-dashed border-blue-300 text-center">
-                  <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Class Key</p>
-                  <p className="text-2xl font-mono font-bold text-blue-600 tracking-widest select-all">{cls.classKey}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* TAB 2: CURRICULUM */}
-      {activeTab === "curriculum" && (
-        <div className="max-w-2xl">
-          <AdminCurriculum />
-        </div>
-      )}
-
-      {/* TAB 3: GRADEBOOK */}
-      {activeTab === "gradebook" && (
-        <div className="max-w-5xl">
-          <TeacherGradebook />
-        </div>
-      )}
-
+        ))}
+      </div>
     </div>
   );
 }
