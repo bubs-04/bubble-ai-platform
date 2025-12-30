@@ -13,14 +13,11 @@ export default function LandingPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   
-  // Lead Generation State
   const [leadEmail, setLeadEmail] = useState("");
-  const [schoolName, setSchoolName] = useState("");
   const [leadSent, setLeadSent] = useState(false);
 
   const router = useRouter();
 
-  // --- LOGIN LOGIC ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -39,159 +36,175 @@ export default function LandingPage() {
     try {
       await signInWithPopup(auth, googleProvider);
       router.push("/dashboard");
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  // --- LEAD GEN LOGIC (Sales Bot 🤖) ---
-  const handleContactSales = async (e: React.FormEvent) => {
+  const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leadEmail || !schoolName) return;
-    
+    if (!leadEmail) return;
     try {
-      await addDoc(collection(db, "leads"), {
-        school: schoolName,
-        email: leadEmail,
-        createdAt: serverTimestamp(),
-        status: "new"
-      });
+      await addDoc(collection(db, "leads"), { email: leadEmail, createdAt: serverTimestamp(), source: "hero_input" });
       setLeadSent(true);
-    } catch (err) {
-      console.error("Error saving lead", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-blue-500 selection:text-white font-sans">
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-blue-500 selection:text-white font-sans overflow-x-hidden">
       
+      {/* --- AMBIENT GLOW (The Bubble Effect) --- */}
+      <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        {/* Blue Bubble */}
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"></div>
+        {/* Purple Bubble */}
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[120px] animate-pulse delay-700"></div>
+      </div>
+
       {/* --- NAVBAR --- */}
-      <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/10">
+      <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-[#050505]/70 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-xl font-bold">B</div>
-            <span className="text-xl font-bold tracking-tight">BubbleAI</span>
+             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
+               <span className="text-white font-bold text-lg">B</span>
+             </div>
+             <span className="text-xl font-bold tracking-tight">BubbleAI</span>
           </div>
-          <div className="flex items-center gap-6">
-            <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors hidden md:block">Curriculum</a>
-            <a href="#pricing" className="text-sm text-gray-400 hover:text-white transition-colors hidden md:block">Schools</a>
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-all"
-            >
-              Portal Login
-            </button>
-          </div>
+          <button 
+            onClick={() => setShowLogin(true)}
+            className="text-sm font-medium text-gray-300 hover:text-white transition-colors border border-white/10 px-4 py-2 rounded-full hover:bg-white/5"
+          >
+            Login
+          </button>
         </div>
       </nav>
 
       {/* --- HERO SECTION --- */}
-      <section className="pt-32 pb-20 px-6 max-w-7xl mx-auto text-center">
-        <div className="inline-block px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-bold uppercase tracking-widest mb-8 animate-fade-in">
-          Now Available for Grades 6-12
-        </div>
-        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
-          The Operating System <br /> for AI Education.
+      <section className="pt-48 pb-24 px-6 max-w-5xl mx-auto text-center relative">
+        
+        {/* Headline */}
+        <h1 className="text-6xl md:text-8xl font-bold tracking-tighter mb-6 leading-[1.1]">
+          Step Into the <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+            Age of AI.
+          </span>
         </h1>
-        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-          Don't just teach from a textbook. Give your students a live AI laboratory. 
-          BubbleAI is the turnkey curriculum platform for modern schools.
+
+        {/* The "Step into the Bubble" Subhead */}
+        <h2 className="text-2xl md:text-3xl font-light text-gray-300 mb-8">
+          Step into the Bubble.
+        </h2>
+
+        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-12 leading-relaxed">
+          The immersive learning ecosystem where students don't just study the future—they build it. Safe, guided, and hands-on.
         </p>
         
-        {/* LEAD CAPTURE FORM */}
-        {!leadSent ? (
-          <form onSubmit={handleContactSales} className="max-w-md mx-auto flex flex-col sm:flex-row gap-3">
-            <input 
-              type="email" 
-              placeholder="School Email Address" 
-              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all"
-              value={leadEmail}
-              onChange={(e) => setLeadEmail(e.target.value)}
-              required
-            />
-            <input 
-              type="text" 
-              placeholder="School Name" 
-              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-all sm:hidden"
-              value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
-              required
-            />
-            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-lg transition-all whitespace-nowrap">
-              Request Demo
-            </button>
-          </form>
-        ) : (
-          <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-lg max-w-md mx-auto">
-            🚀 <strong>Received.</strong> Our education team will contact you shortly.
-          </div>
-        )}
+        {/* Input Field */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {!leadSent ? (
+            <form onSubmit={handleLeadSubmit} className="relative w-full max-w-sm group">
+              <input 
+                type="email" 
+                placeholder="Enter school email address" 
+                className="w-full bg-white/5 border border-white/10 rounded-full px-6 py-4 pr-36 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-all"
+                value={leadEmail}
+                onChange={(e) => setLeadEmail(e.target.value)}
+                required
+              />
+              <button type="submit" className="absolute right-2 top-2 bottom-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 rounded-full transition-all shadow-lg shadow-blue-900/20">
+                Join the Waitlist
+              </button>
+            </form>
+          ) : (
+             <div className="bg-blue-500/10 border border-blue-500/20 text-blue-300 px-6 py-3 rounded-full flex items-center gap-2">
+               <span>✨ You're on the list. We'll be in touch.</span>
+             </div>
+          )}
+        </div>
       </section>
 
-      {/* --- DASHBOARD PREVIEW --- */}
-      <div className="max-w-6xl mx-auto px-4 mb-32">
-        <div className="rounded-xl border border-white/10 bg-gray-900/50 p-2 shadow-2xl shadow-blue-900/20 backdrop-blur-sm">
-           <div className="aspect-video rounded-lg bg-gray-800 flex items-center justify-center border border-white/5 relative overflow-hidden group">
-             {/* Fake UI for visual appeal */}
-             <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900"></div>
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-               <div className="text-6xl mb-4">🖥️</div>
-               <p className="text-gray-500 font-mono text-sm">BubbleAI Teacher Dashboard Preview</p>
-             </div>
-           </div>
-        </div>
-      </div>
+      {/* --- FEATURES (Glass Cards) --- */}
+      <section className="py-20 px-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
+            <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-2xl mb-6 text-blue-400">⚡</div>
+            <h3 className="text-xl font-bold mb-2">Interactive Learning</h3>
+            <p className="text-gray-500 leading-relaxed text-sm">
+              Move beyond textbooks. Our platform offers live AI labs where students experiment safely.
+            </p>
+          </div>
 
-      {/* --- LOGIN MODAL --- */}
+          <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
+             <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-2xl mb-6 text-indigo-400">🛡️</div>
+             <h3 className="text-xl font-bold mb-2">Safe & Ethical</h3>
+             <p className="text-gray-500 leading-relaxed text-sm">
+               A walled garden for AI. We teach responsible usage and ethics before tools are unlocked.
+             </p>
+          </div>
+
+          <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all">
+             <div className="w-12 h-12 bg-purple-500/10 rounded-2xl flex items-center justify-center text-2xl mb-6 text-purple-400">🌍</div>
+             <h3 className="text-xl font-bold mb-2">Global Curriculum</h3>
+             <p className="text-gray-500 leading-relaxed text-sm">
+               Standardized lessons for Grades 6-12, available in multiple languages for global reach.
+             </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* --- LOGIN OVERLAY --- */}
       {showLogin && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-white text-black rounded-2xl p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0A0A0A] border border-white/10 text-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative">
             <button 
               onClick={() => setShowLogin(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-black font-bold"
+              className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
             >
               ✕
             </button>
             
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-1">Welcome Back</h2>
-              <p className="text-gray-500 text-sm">Login to your school portal</p>
+              <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-900/20">
+                <span className="text-3xl font-bold">B</span>
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Step into the Bubble</h2>
+              <p className="text-gray-500 text-sm">Access your school portal</p>
             </div>
 
             <button 
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-2 border border-gray-300 py-3 rounded-lg font-bold hover:bg-gray-50 transition-all mb-6"
+              className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-gray-100 transition-all mb-6 flex items-center justify-center gap-2"
             >
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="G" />
               Continue with Google
             </button>
 
             <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-              <div className="relative flex justify-center text-xs uppercase text-gray-400 bg-white px-2">Or email</div>
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
+              <div className="relative flex justify-center text-xs uppercase text-gray-600 bg-[#0A0A0A] px-2 font-bold tracking-wider">Or</div>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
               <input 
                 type="email" 
-                placeholder="Email" 
-                className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500 transition-all"
+                placeholder="Email Address" 
+                className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl outline-none focus:border-blue-500 transition-all text-white placeholder-gray-600"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <input 
                 type="password" 
                 placeholder="Password" 
-                className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-blue-500 transition-all"
+                className="w-full bg-white/5 border border-white/10 p-3.5 rounded-xl outline-none focus:border-blue-500 transition-all text-white placeholder-gray-600"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {error && <p className="text-red-500 text-sm font-medium text-center">{error}</p>}
               <button 
                 disabled={loading}
-                className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-all"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-blue-900/20"
               >
-                {loading ? "Verifying..." : "Log In"}
+                {loading ? "Verifying..." : "Enter Portal"}
               </button>
             </form>
           </div>
@@ -199,13 +212,8 @@ export default function LandingPage() {
       )}
 
       {/* --- FOOTER --- */}
-      <footer className="border-t border-white/10 py-12 text-center text-gray-500 text-sm">
-        <p>&copy; 2026 BubbleAI Inc. All rights reserved.</p>
-        <div className="flex justify-center gap-4 mt-4">
-           <a href="#" className="hover:text-white">Privacy</a>
-           <a href="#" className="hover:text-white">Terms</a>
-           <a href="#" className="hover:text-white">Contact</a>
-        </div>
+      <footer className="border-t border-white/5 py-12 text-center text-gray-700 text-sm">
+        <p>&copy; 2026 BubbleAI Inc.</p>
       </footer>
     </div>
   );
