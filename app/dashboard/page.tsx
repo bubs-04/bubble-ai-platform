@@ -5,54 +5,46 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore"; 
 import { useRouter } from "next/navigation";
-import TeacherDashboard from "@/components/TeacherDashboard";
-import StudentDashboard from "@/components/StudentDashboard";
 import { UserProfile } from "@/types";
 
+// Import Role Components (We will create these next)
+import MasterDashboard from "@/components/MasterDashboard";
+import TeacherDashboard from "@/components/TeacherDashboard";
+import StudentDashboard from "@/components/StudentDashboard";
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        // Fetch Role from DB
-        const docRef = doc(db, "users", currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
-        }
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        if (snap.exists()) setProfile(snap.data() as UserProfile);
       } else {
         router.push("/");
       }
       setLoading(false);
     });
-    return () => unsubscribe();
-  }, [router]);
+    return () => unsub();
+  }, []);
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-black text-white">Loading Portal...</div>;
-  if (!user || !profile) return null;
+  if (loading) return <div className="h-screen bg-black flex items-center justify-center text-white">Loading Portal...</div>;
+  if (!profile) return null;
 
+  // --- THE ROUTER ---
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* HEADER */}
-      <header className="bg-white border-b px-8 py-4 flex justify-between items-center sticky top-0 z-30">
-        <div className="font-bold text-xl text-gray-800">BubbleAI <span className="text-gray-400 font-normal text-sm">| {profile.schoolId === 'demo_school' ? 'Demo Campus' : 'Portal'}</span></div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-bold bg-blue-100 text-blue-700 px-3 py-1 rounded-full capitalize">{profile.role}</span>
-          <button onClick={() => { signOut(auth); router.push("/"); }} className="text-sm text-red-500 hover:text-red-700 font-medium">Sign Out</button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+         <div className="font-bold text-xl">Bubble<span className="text-blue-600">AI</span> <span className="text-xs text-gray-400 ml-2">| {profile.role.toUpperCase()} PORTAL</span></div>
+         <button onClick={() => signOut(auth)} className="text-red-500 text-sm font-bold">Sign Out</button>
+      </nav>
 
-      <main className="p-8 max-w-6xl mx-auto">
-        {profile.role === 'teacher' ? (
-          <TeacherDashboard user={user} schoolId={profile.schoolId} />
-        ) : (
-          <StudentDashboard schoolId={profile.schoolId} studentName={profile.displayName} />
-        )}
+      <main className="p-6 max-w-7xl mx-auto">
+        {profile.role === "master" && <MasterDashboard user={profile} />}
+        {profile.role === "teacher" && <TeacherDashboard user={profile} />}
+        {profile.role === "student" && <StudentDashboard user={profile} />}
       </main>
     </div>
   );

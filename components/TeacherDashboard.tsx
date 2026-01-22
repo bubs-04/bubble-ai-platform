@@ -2,82 +2,106 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs, updateDoc, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
-import { Week, UserProfile } from "@/types";
+import { collection, query, where, getDocs, updateDoc, doc, orderBy } from "firebase/firestore";
+import { UserProfile, Classroom, Lesson } from "@/types";
 
-export default function TeacherDashboard({ user, schoolId }: { user: any, schoolId: string }) {
-  const [weeks, setWeeks] = useState<Week[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function TeacherDashboard({ user }: { user: UserProfile }) {
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [students, setStudents] = useState<UserProfile[]>([]);
 
-  // 1. Fetch Curriculum
+  // 1. Load Classes
   useEffect(() => {
-    const fetchWeeks = async () => {
-      if (!schoolId) return;
-      const q = query(collection(db, "schools", schoolId, "curriculum", "grade_6", "weeks"), orderBy("order"));
+    const loadClasses = async () => {
+      // In a real app, we filter by teacherId. For demo, we fetch all demo classes.
+      const q = query(collection(db, "classrooms"), where("schoolId", "==", user.schoolId || "demo_school"));
       const snap = await getDocs(q);
-      setWeeks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Week)));
+      setClassrooms(snap.docs.map(d => ({ id: d.id, ...d.data() } as Classroom)));
     };
-    fetchWeeks();
-  }, [schoolId]);
+    loadClasses();
+  }, [user]);
 
-  // 2. TOGGLE PUBLISH (Lock/Unlock)
-  const togglePublish = async (weekId: string, currentStatus: boolean) => {
-    await updateDoc(doc(db, "schools", schoolId, "curriculum", "grade_6", "weeks", weekId), {
-      isPublished: !currentStatus
-    });
-    // Optimistic Update
-    setWeeks(weeks.map(w => w.id === weekId ? { ...w, isPublished: !currentStatus } : w));
+  // 2. Load Class Content
+  const openClass = async (classId: string) => {
+    setSelectedClass(classId);
+    
+    // Fetch Lessons
+    const lQ = query(collection(db, "classrooms", classId, "lessons"), orderBy("weekOrder"));
+    const lSnap = await getDocs(lQ);
+    setLessons(lSnap.docs.map(d => ({ id: d.id, ...d.data() } as Lesson)));
+
+    // Fetch Students (Pending & Approved)
+    const sQ = query(collection(db, "users"), where("classIds", "array-contains", classId));
+    const sSnap = await getDocs(sQ);
+    setStudents(sSnap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile)));
   };
 
-  // 3. THE INSTALLER (Admin Tool)
-  const installCurriculum = async () => {
-    if(!confirm("Are you sure? This will add 3 weeks to the database.")) return;
-    setLoading(true);
-    
-    const demoData = [
-      { order: 1, title: "Intro to AI", content: "What is AI? History and Basics.", isPublished: true, videoUrl: "https://www.youtube.com/embed/ad79nYk2keg" },
-      { order: 2, title: "Machine Learning", content: "Supervised vs Unsupervised Learning.", isPublished: false },
-      { order: 3, title: "Ethics in AI", content: "Bias, Privacy, and Safety.", isPublished: false }
-    ];
+  const togglePublish = async (lessonId: string, current: boolean) => {
+    if(!selectedClass) return;
+    await updateDoc(doc(db, "classrooms", selectedClass, "lessons", lessonId), { isPublished: !current });
+    setLessons(lessons.map(l => l.id === lessonId ? { ...l, isPublished: !current } : l));
+  };
 
-    try {
-      for (const week of demoData) {
-        await addDoc(collection(db, "schools", schoolId, "curriculum", "grade_6", "weeks"), { ...week, createdAt: serverTimestamp() });
-      }
-      alert("Installation Complete. Refresh page.");
-      window.location.reload();
-    } catch (e) { alert("Error installing."); }
-    setLoading(false);
+  const approveStudent = async (studentId: string) => {
+    await updateDoc(doc(db, "users", studentId), { approved: true });
+    setStudents(students.map(s => s.uid === studentId ? { ...s, approved: true } : s));
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl border">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Curriculum Manager</h2>
-          <p className="text-gray-500">Grade 6 • Computer Science</p>
-        </div>
-        <button onClick={installCurriculum} disabled={loading} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-500">
-           {loading ? "Installing..." : "🛠️ Install Syllabus"}
-        </button>
-      </div>
-
-      <div className="grid gap-4">
-        {weeks.length === 0 ? <p className="text-gray-500">No curriculum found. Click 'Install Syllabus'.</p> : weeks.map((week) => (
-          <div key={week.id} className="bg-white border rounded-lg p-4 flex justify-between items-center">
-             <div>
-               <h3 className="font-bold text-lg">Week {week.order}: {week.title}</h3>
-               <p className="text-sm text-gray-500">{week.isPublished ? "🟢 Live for Students" : "🔴 Locked"}</p>
-             </div>
-             <button 
-               onClick={() => togglePublish(week.id, week.isPublished)}
-               className={`px-4 py-2 rounded-lg font-bold text-sm ${week.isPublished ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}
-             >
-               {week.isPublished ? "Lock Content" : "Publish Content"}
+    <div>
+      {!selectedClass ? (
+        <div className="grid gap-6">
+          <h2 className="text-2xl font-bold">Your Classrooms</h2>
+          {classrooms.map(c => (
+             <button key={c.id} onClick={() => openClass(c.id)} className="bg-white p-6 rounded-xl border text-left hover:border-blue-500 transition-all shadow-sm">
+                <h3 className="text-xl font-bold text-blue-600">{c.name}</h3>
+                <p className="text-gray-500">Student Code: <span className="font-mono bg-gray-100 px-2 py-1 rounded">{c.classCode}</span></p>
              </button>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <button onClick={() => setSelectedClass(null)} className="text-gray-500 hover:text-black">← Back to Classes</button>
+          
+          {/* SYLLABUS MANAGER */}
+          <div className="bg-white p-6 rounded-xl border">
+            <h3 className="font-bold text-lg mb-4">📚 Syllabus Manager</h3>
+            <div className="space-y-4">
+              {lessons.map(l => (
+                <div key={l.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-gray-400">Week {l.weekOrder} • {l.type}</span>
+                    <h4 className="font-bold">{l.title}</h4>
+                  </div>
+                  <button onClick={() => togglePublish(l.id, l.isPublished)} className={`px-4 py-2 rounded-lg font-bold text-sm ${l.isPublished ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-500"}`}>
+                    {l.isPublished ? "Published" : "Draft"}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+
+          {/* STUDENT ROSTER */}
+          <div className="bg-white p-6 rounded-xl border">
+            <h3 className="font-bold text-lg mb-4">👥 Student Roster</h3>
+            <div className="space-y-2">
+              {students.map(s => (
+                <div key={s.uid} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${s.approved ? "bg-green-500" : "bg-yellow-500"}`}></div>
+                    <span>{s.displayName}</span>
+                  </div>
+                  {!s.approved && (
+                    <button onClick={() => approveStudent(s.uid)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full">Approve</button>
+                  )}
+                </div>
+              ))}
+              {students.length === 0 && <p className="text-gray-400">No students joined yet.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
